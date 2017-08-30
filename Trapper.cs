@@ -56,18 +56,18 @@ namespace Oxide.Plugins
         private object OnTrapTrigger(BaseTrap trap, GameObject obj)
         {
             if (!(trap is BearTrap) && !(trap is Landmine)) return null;
-            var player = FindPlayer(trap.OwnerID.ToString());
+            var player = FindPlayer(trap.OwnerID.ToString());;
             if (!player) return null;
             if (!hurtOwner || !hurtFriends)
             {
                 var target = obj.GetComponent<BasePlayer>();
                 if (target)
                 {
-                    if (hurtOwner)
+                    if (!hurtOwner)
                         if (target == player)
                             if (permission.UserHasPermission(target.UserIDString, permissionNameOWNER))
                                 return false;
-                    if (hurtFriends)
+                    if (!hurtFriends)
                         if (Convert.ToBoolean(Friends?.CallHook("AreFriends", target.userID, player.userID)))
                             if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
                                 return false;
