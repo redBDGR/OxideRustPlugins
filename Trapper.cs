@@ -6,10 +6,11 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Trapper", "redBDGR", "1.0.5", ResourceId = 2417)]
+    [Info("Trapper", "redBDGR", "1.0.6", ResourceId = 2417)]
     [Description("Adds a few new features to traps")]
     class Trapper : RustPlugin
     {
+        private const string permissionNameADMIN = "trapper.admin";
         private const string permissionName = "trapper.auto";
         private const string permissionNameOWNER = "trapper.owner";
         private const string permissionNameFRIENDS = "trapper.friends";
@@ -26,6 +27,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(permissionName, this);
             permission.RegisterPermission(permissionNameOWNER, this);
             permission.RegisterPermission(permissionNameFRIENDS, this);
+            permission.RegisterPermission(permissionNameADMIN, this);
         }
 
         protected override void LoadDefaultConfig()
@@ -58,6 +60,8 @@ namespace Oxide.Plugins
             if (!(trap is BearTrap) && !(trap is Landmine)) return null;
             var player = FindPlayer(trap.OwnerID.ToString());;
             if (!player) return null;
+            if (permission.UserHasPermission(player.UserIDString, permissionNameADMIN))
+                return false;
             if (!hurtOwner || !hurtFriends)
             {
                 var target = obj.GetComponent<BasePlayer>();
