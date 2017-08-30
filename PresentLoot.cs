@@ -7,7 +7,7 @@ using Oxide.Core.Configuration;
 
 namespace Oxide.Plugins
 {
-    [Info("PresentLoot", "redBDGR", "1.0.1", ResourceId = 2599)]
+    [Info("PresentLoot", "redBDGR", "1.0.2", ResourceId = 2599)]
     [Description("Modify the loot tables for the presents")]
 
     class PresentLoot : RustPlugin
@@ -63,6 +63,7 @@ namespace Oxide.Plugins
             public int maxItemAmount;
             public Dictionary<string, float> attachments;
             public float chance;
+            public int skindID;
         }
 
         #endregion
@@ -142,22 +143,22 @@ namespace Oxide.Plugins
             bool updated = false;
             if (smallList.Count == 0)
             {
-                smallList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 4, chance = 0.20f, itemName = "chocholate", maxItemAmount = 5 });
-                smallList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 10, chance = 0.20f, itemName = "metal.fragments", maxItemAmount = 50 });
+                smallList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 4, chance = 0.20f, itemName = "chocholate", maxItemAmount = 5, skindID = 0 });
+                smallList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 10, chance = 0.20f, itemName = "metal.fragments", maxItemAmount = 50, skindID = 0 });
                 updated = true;
             }
             if (mediumList.Count == 0)
             {
-                mediumList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 3, chance = 0.20f, itemName = "metalspring", maxItemAmount = 5 });
-                mediumList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 1, chance = 0.20f, itemName = "pistol.revolver", maxItemAmount = 1 });
-                mediumList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 1, chance = 0.20f, itemName = "stocking.small", maxItemAmount = 1 });
+                mediumList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 3, chance = 0.20f, itemName = "metalspring", maxItemAmount = 5, skindID = 0 });
+                mediumList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 1, chance = 0.20f, itemName = "pistol.revolver", maxItemAmount = 1, skindID = 0 });
+                mediumList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 1, chance = 0.20f, itemName = "stocking.small", maxItemAmount = 1, skindID = 0 });
                 updated = true;
             }
             if (largeList.Count == 0)
             {
-                largeList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 1, chance = 0.20f, itemName = "stocking.large", maxItemAmount = 1 });
-                largeList.Add(new ItemInfo { attachments = new Dictionary<string, float> { {"weapon.mod.holosight", 0.5f}, {"weapon.mod.lasersight", 0.5f} }, minItemAmount = 1, chance = 0.20f, itemName = "shotgun.pump", maxItemAmount = 1 });
-                largeList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 5, chance = 0.20f, itemName = "ammo.shotgun", maxItemAmount = 15 });
+                largeList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 1, chance = 0.20f, itemName = "stocking.large", maxItemAmount = 1, skindID = 0 });
+                largeList.Add(new ItemInfo { attachments = new Dictionary<string, float> { {"weapon.mod.holosight", 0.5f}, {"weapon.mod.lasersight", 0.5f} }, minItemAmount = 1, chance = 0.20f, itemName = "shotgun.pump", maxItemAmount = 1, skindID = 0 });
+                largeList.Add(new ItemInfo { attachments = new Dictionary<string, float>(), minItemAmount = 5, chance = 0.20f, itemName = "ammo.shotgun", maxItemAmount = 15, skindID = 0 });
                 updated = true;
             }
             if (!updated) return;
@@ -245,7 +246,7 @@ namespace Oxide.Plugins
                 ItemInfo entry = list[Mathf.RoundToInt(Random.Range(0f, Convert.ToSingle(list.Count - 1)))];
                 if (Random.Range(0f, 1f) > entry.chance)
                     continue;
-                Item newItem = ItemManager.CreateByName(entry.itemName, Random.Range(entry.minItemAmount, entry.maxItemAmount));
+                Item newItem = ItemManager.CreateByName(entry.itemName, Random.Range(entry.minItemAmount, entry.maxItemAmount), (ulong) entry.skindID);
                 foreach (var attachmentName in entry.attachments)
                     if (Random.Range(0f, 1f) < attachmentName.Value)
                         ItemManager.CreateByName(attachmentName.Key).MoveToContainer(newItem.contents);
