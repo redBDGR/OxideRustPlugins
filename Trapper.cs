@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Trapper", "redBDGR", "1.0.6", ResourceId = 2417)]
+    [Info("Trapper", "redBDGR", "1.0.8", ResourceId = 2417)]
     [Description("Adds a few new features to traps")]
     class Trapper : RustPlugin
     {
@@ -16,7 +16,9 @@ namespace Oxide.Plugins
         private const string permissionNameFRIENDS = "trapper.friends";
 
         private bool Changed;
-        [PluginReference] private Plugin Friends;
+        [PluginReference] private Plugin Friends; private bool friendsEnabled;
+        [PluginReference] private Plugin RustIO; private bool rustIOEnabled;
+        [PluginReference] private Plugin ClansReborn; private bool clansRebornEnabled;
         private bool hurtFriends;
         private bool hurtOwner;
         private float resetTime = 5f;
@@ -47,40 +49,56 @@ namespace Oxide.Plugins
             Changed = false;
         }
 
-        private void Loaded()
+        private void OnServerInitialized()
         {
-            if (!hurtFriends) return;
-            if (Friends) return;
-            PrintError("Friends.cs was not found! all friend functions of this plugin have been disabled");
-            hurtFriends = false;
+            if (hurtFriends)
+            {
+                rustIOEnabled = RustIO != null && RustIO.Call<bool>("IsInstalled");
+                friendsEnabled = Friends != null;
+                clansRebornEnabled = ClansReborn != null;
+            }
         }
 
         private object OnTrapTrigger(BaseTrap trap, GameObject obj)
         {
             if (!(trap is BearTrap) && !(trap is Landmine)) return null;
+            BasePlayer target = obj.GetComponent<BasePlayer>();
+            if (target != null)
+            {
+                if (permission.UserHasPermission(target.UserIDString, permissionNameADMIN))
+                    return false;
+            }
             var player = FindPlayer(trap.OwnerID.ToString());;
-            if (!player) return null;
-            if (permission.UserHasPermission(player.UserIDString, permissionNameADMIN))
-                return false;
             if (!hurtOwner || !hurtFriends)
             {
-                var target = obj.GetComponent<BasePlayer>();
-                if (target)
+                if (target != null && player != null)
                 {
                     if (!hurtOwner)
                         if (target == player)
                             if (permission.UserHasPermission(target.UserIDString, permissionNameOWNER))
                                 return false;
                     if (!hurtFriends)
-                        if (Convert.ToBoolean(Friends?.CallHook("AreFriends", target.userID, player.userID)))
-                            if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
-                                return false;
+                    {
+                        if (rustIOEnabled)
+                            if ((bool)RustIO?.Call("HasFriend", target.UserIDString, player.UserIDString))
+                                if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
+                                    return false;
+                        if (friendsEnabled)
+                            if ((bool)Friends?.CallHook("AreFriends", target.userID, player.userID))
+                                if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
+                                    return false;
+                    }
                 }
             }
 
             if (!(trap is BearTrap)) return null;
-            if (!player || permission.UserHasPermission(player?.UserIDString, permissionName))
-                timer.Once(resetTime, () => ((BearTrap) trap).Arm());
+            if (player == null) return null;
+            if (permission.UserHasPermission(player.UserIDString, permissionName))
+                timer.Once(resetTime, () =>
+                {
+                    if (trap != null)
+                        ((BearTrap) trap).Arm();
+                });
             return null;
         }
 
