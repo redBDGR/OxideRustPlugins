@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Trapper", "redBDGR", "1.0.8", ResourceId = 2417)]
+    [Info("Trapper", "redBDGR", "1.0.9", ResourceId = 2417)]
     [Description("Adds a few new features to traps")]
     class Trapper : RustPlugin
     {
@@ -14,12 +14,16 @@ namespace Oxide.Plugins
         private const string permissionName = "trapper.auto";
         private const string permissionNameOWNER = "trapper.owner";
         private const string permissionNameFRIENDS = "trapper.friends";
+        private const string permissionNameCLAN = "trapper.clan";
 
         private bool Changed;
         [PluginReference] private Plugin Friends; private bool friendsEnabled;
         [PluginReference] private Plugin RustIO; private bool rustIOEnabled;
         [PluginReference] private Plugin ClansReborn; private bool clansRebornEnabled;
+        [PluginReference] private Plugin Clans; private bool clansEnabled;
+
         private bool hurtFriends;
+        private bool hurtClanMates;
         private bool hurtOwner;
         private float resetTime = 5f;
 
@@ -30,6 +34,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(permissionNameOWNER, this);
             permission.RegisterPermission(permissionNameFRIENDS, this);
             permission.RegisterPermission(permissionNameADMIN, this);
+            permission.RegisterPermission(permissionNameCLAN, this);
         }
 
         protected override void LoadDefaultConfig()
@@ -43,6 +48,7 @@ namespace Oxide.Plugins
             resetTime = Convert.ToSingle(GetConfig("Settings", "Reset Time", 5f));
             hurtOwner = Convert.ToBoolean(GetConfig("Settings", "Trigger for Owner", true));
             hurtFriends = Convert.ToBoolean(GetConfig("Settings", "Trigger for Friends", true));
+            hurtClanMates = Convert.ToBoolean(GetConfig("Settings", "Trigger for clan mates", true));
 
             if (!Changed) return;
             SaveConfig();
@@ -56,6 +62,7 @@ namespace Oxide.Plugins
                 rustIOEnabled = RustIO != null && RustIO.Call<bool>("IsInstalled");
                 friendsEnabled = Friends != null;
                 clansRebornEnabled = ClansReborn != null;
+                clansEnabled = Clans != null;
             }
         }
 
@@ -68,25 +75,41 @@ namespace Oxide.Plugins
                 if (permission.UserHasPermission(target.UserIDString, permissionNameADMIN))
                     return false;
             }
-            var player = FindPlayer(trap.OwnerID.ToString());;
-            if (!hurtOwner || !hurtFriends)
+            var player = FindPlayer(trap.OwnerID.ToString());
+            if (target != null && player != null)
             {
-                if (target != null && player != null)
+                // Owner protection
+                if (!hurtOwner)
+                    if (target == player)
+                        if (permission.UserHasPermission(target.UserIDString, permissionNameOWNER))
+                            return false;
+
+                // Friends protection
+                if (!hurtFriends)
                 {
-                    if (!hurtOwner)
-                        if (target == player)
-                            if (permission.UserHasPermission(target.UserIDString, permissionNameOWNER))
+                    if (friendsEnabled)
+                        if ((bool)Friends?.CallHook("AreFriends", target.userID, player.userID))
+                            if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
                                 return false;
-                    if (!hurtFriends)
+                    if (rustIOEnabled)
+                        if ((bool)RustIO?.Call("HasFriend", target.UserIDString, player.UserIDString))
+                            if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
+                                return false;
+                }
+
+                // Clanmates protection
+                if (!hurtClanMates)
+                {
+                    if (clansEnabled)
                     {
-                        if (rustIOEnabled)
-                            if ((bool)RustIO?.Call("HasFriend", target.UserIDString, player.UserIDString))
-                                if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
-                                    return false;
-                        if (friendsEnabled)
-                            if ((bool)Friends?.CallHook("AreFriends", target.userID, player.userID))
-                                if (permission.UserHasPermission(player.UserIDString, permissionNameFRIENDS))
-                                    return false;
+                        if ((string) Clans?.Call("GetClanTag", target.UserIDString) == (string) Clans?.Call("GetClanTag", player.UserIDString))
+                        {
+                            if (permission.UserHasPermission(player.UserIDString, permissionNameCLAN))
+                                return false;
+                        }
+                        else if ((string) Clans?.Call("GetClanOf", target.UserIDString) == (string) Clans?.Call("GetClanOf", player.UserIDString))
+                            if (permission.UserHasPermission(player.UserIDString, permissionNameCLAN))
+                                return false;
                     }
                 }
             }
