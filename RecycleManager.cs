@@ -5,52 +5,50 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("RecycleManager", "redBDGR", "1.0.6", ResourceId = 2391)]
+    [Info("RecycleManager", "redBDGR", "1.0.7", ResourceId = 2391)]
     [Description("Easily change features about the recycler")]
 
     class RecycleManager : RustPlugin
     {
-        bool Changed = false;
+        private bool changed;
 
         public float recycleTime = 5.0f;
-        const string permissionNameADMIN = "recyclemanager.admin";
-        int maxItemsPerRecycle = 100;
+        private const string permissionNameADMIN = "recyclemanager.admin";
+        private int maxItemsPerRecycle = 100;
 
-        static Dictionary<string, object> Multipliers()
+        private static Dictionary<string, object> Multipliers()
         {
-            var at = new Dictionary<string, object>();
-            at.Add("*", 1);
-            at.Add("metal.refined", 1);
-            return at;
-        }
-        static List<object> Blacklist()
-        {
-            var at = new List<object>();
-            at.Add("hemp.seed");
-            return at;
-        }
-        static List<object> OutputBlacklist()
-        {
-            var at = new List<object>();
-            at.Add("hemp.seed");
+            var at = new Dictionary<string, object> {{"*", 1}, {"metal.refined", 1}};
             return at;
         }
 
-        List<object> BlacklistedItems;
-        List<object> OutputBlacklistedItems;
-        Dictionary<string, object> MultiplyList;
-
-        void LoadVariables()
+        private static List<object> Blacklist()
         {
-            BlacklistedItems = (List<object>)GetConfig("Lists", "Input Blacklist", Blacklist());
+            var at = new List<object> {"hemp.seed"};
+            return at;
+        }
+
+        private static List<object> OutputBlacklist()
+        {
+            var at = new List<object> {"hemp.seed"};
+            return at;
+        }
+
+        private List<object> blacklistedItems;
+        private List<object> outputBlacklistedItems;
+        private Dictionary<string, object> multiplyList;
+
+        private void LoadVariables()
+        {
+            blacklistedItems = (List<object>)GetConfig("Lists", "Input Blacklist", Blacklist());
             recycleTime = Convert.ToSingle(GetConfig("Settings", "Recycle Time", 5.0f));
-            MultiplyList = (Dictionary<string, object>)GetConfig("Lists", "Recycle Output Multipliers", Multipliers());
+            multiplyList = (Dictionary<string, object>)GetConfig("Lists", "Recycle Output Multipliers", Multipliers());
             maxItemsPerRecycle = Convert.ToInt32(GetConfig("Settings", "Max Items Per Recycle", 100));
-            OutputBlacklistedItems = (List<object>)GetConfig("Lists", "Output Blacklist", OutputBlacklist());
+            outputBlacklistedItems = (List<object>)GetConfig("Lists", "Output Blacklist", OutputBlacklist());
 
-            if (!Changed) return;
+            if (!changed) return;
             SaveConfig();
-            Changed = false;
+            changed = false;
         }
 
         protected override void LoadDefaultConfig()
@@ -59,13 +57,13 @@ namespace Oxide.Plugins
             LoadVariables();
         }
 
-        void Init()
+        private void Init()
         {
             LoadVariables();
             permission.RegisterPermission(permissionNameADMIN, this);
         }
 
-        void Loaded()
+        private void Loaded()
         {
             lang.RegisterMessages(new Dictionary<string, string>
             {
@@ -79,7 +77,7 @@ namespace Oxide.Plugins
         }
 
         [ChatCommand("addrecycler")]
-        void AddRecyclerCMD(BasePlayer player, string command, String[] args)
+        private void AddRecyclerCMD(BasePlayer player, string command, String[] args)
         {
             if (!permission.UserHasPermission(player.UserIDString, permissionNameADMIN))
             {
@@ -93,9 +91,9 @@ namespace Oxide.Plugins
         }
 
         [ConsoleCommand("addrecycler")]
-        void AddRecyclerCMDConsole(ConsoleSystem.Arg arg)
+        private void AddRecyclerCMDConsole(ConsoleSystem.Arg arg)
         {
-            if (arg == null || arg.Args == null)
+            if (arg?.Args == null)
             {
                 arg.ReplyWith(msg("addrecycler CONSOLE invalid syntax"));
                 return;
@@ -122,50 +120,48 @@ namespace Oxide.Plugins
             arg.ReplyWith(msg("AddRecycler CONSOLE success"));
         }
 
-        void OnRecyclerToggle(Recycler recycler, BasePlayer player)
+        private void OnRecyclerToggle(Recycler recycler, BasePlayer player)
         {
             if (recycler.IsOn()) return;
             recycler.CancelInvoke("RecycleThink");
             timer.Once(0.1f, () => { recycler.Invoke("RecycleThink", recycleTime); });
         }
 
-        bool CanRecycle(Recycler recycler, Item item)
+        private bool CanRecycle(Recycler recycler, Item item)
         {
-            if (BlacklistedItems.Contains(item.info.shortname)) return false;
+            if (blacklistedItems.Contains(item.info.shortname))
+                return false;
+            if (item.info.Blueprint == null)
+                return false;
+            if (item.info.Blueprint.ingredients == null)
+                return false;
+            if (item.info.Blueprint.ingredients.Count == 0)
+                return false;
             return true;
         }
 
-        object OnRecycleItem(Recycler recycler, Item item)
+        private object OnRecycleItem(Recycler recycler, Item item)
         {
-            Item slot = item;
-            double itemamount = Convert.ToDouble(slot.amount);
             bool flag = false;
             int usedItems = 1;
 
-            if (slot.amount > 1)
-                usedItems = slot.amount;
+            if (item.amount > 1)
+                usedItems = item.amount;
             if (usedItems > maxItemsPerRecycle)
                 usedItems = maxItemsPerRecycle;
 
-            slot.UseItem(usedItems);
-            if (slot.info.Blueprint.ingredients == null || slot.info.Blueprint.ingredients.Count == 0)
-            {
-                recycler.StopRecycling();
-                return true;
-            }
-
-            foreach (ItemAmount ingredient in slot.info.Blueprint.ingredients)
+            item.UseItem(usedItems);
+            foreach (ItemAmount ingredient in item.info.Blueprint.ingredients)
             {
                 double multi = 1;
-                if (MultiplyList.ContainsKey("*"))
-                    multi = Convert.ToDouble(MultiplyList["*"]);
-                if (MultiplyList.ContainsKey(ingredient.itemDef.shortname))
-                    multi = Convert.ToDouble(MultiplyList[ingredient.itemDef.shortname]);
-
+                if (multiplyList.ContainsKey("*"))
+                    multi = Convert.ToDouble(multiplyList["*"]);
+                if (multiplyList.ContainsKey(ingredient.itemDef.shortname))
+                    multi = Convert.ToDouble(multiplyList[ingredient.itemDef.shortname]);
                 int outputamount = Convert.ToInt32(usedItems * ((Convert.ToDouble(ingredient.amount) * multi) / 2));
                 if (outputamount < 1)
                     continue;
-                if (!recycler.MoveItemToOutput(ItemManager.CreateByItemID(ingredient.itemid, outputamount, (ulong)0)))
+                if (!recycler.MoveItemToOutput(ItemManager.CreateByItemID(ingredient.itemid, outputamount)))
                     flag = true;
             }
             if (flag || !recycler.HasRecyclable())
@@ -174,34 +170,32 @@ namespace Oxide.Plugins
                 for (int i = 5; i <= 11; i++)
                 {
                     Item _item = recycler.inventory.GetSlot(i);
-                    if (_item != null)
-                        if (_item.IsValid())
-                            if (OutputBlacklistedItems.Contains(_item.info.shortname))
-                            {
-                                _item.Remove(0f);
-                                _item.RemoveFromContainer();
-                            }
+                    if (_item == null) continue;
+                    if (_item.IsValid())
+                        if (outputBlacklistedItems.Contains(_item.info.shortname))
+                        {
+                            _item.Remove();
+                            _item.RemoveFromContainer();
+                        }
                 }
             }
             return true;
         }
 
-        object GetConfig(string menu, string datavalue, object defaultValue)
+        private object GetConfig(string menu, string datavalue, object defaultValue)
         {
             var data = Config[menu] as Dictionary<string, object>;
             if (data == null)
             {
                 data = new Dictionary<string, object>();
                 Config[menu] = data;
-                Changed = true;
+                changed = true;
             }
             object value;
-            if (!data.TryGetValue(datavalue, out value))
-            {
-                value = defaultValue;
-                data[datavalue] = value;
-                Changed = true;
-            }
+            if (data.TryGetValue(datavalue, out value)) return value;
+            value = defaultValue;
+            data[datavalue] = value;
+            changed = true;
             return value;
         }
 
