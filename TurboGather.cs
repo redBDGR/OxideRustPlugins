@@ -15,7 +15,7 @@ using Oxide.Game.Rust.Cui;
 
 namespace Oxide.Plugins
 {
-    [Info("TurboGather", "redBDGR", "1.1.10", ResourceId = 2221)]
+    [Info("TurboGather", "redBDGR", "1.1.11", ResourceId = 2221)]
     [Description("Lets players activate a resouce gather boost for a certain amount of time")]
 
     class TurboGather : RustPlugin
@@ -367,6 +367,12 @@ namespace Oxide.Plugins
                 BasePlayer player = BasePlayer.FindByID(quarry.OwnerID) ?? BasePlayer.FindSleeping(quarry.OwnerID);
                 DoGather(player, item);
             }
+        }
+
+        void OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
+        {
+            if (dispenserEnabled)
+                DoGather(player, item);
         }
         #endregion
 
